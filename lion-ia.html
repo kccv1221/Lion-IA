@@ -52,12 +52,7 @@
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
     /* ── API ── */
-    .api-wrap{width:100%;max-width:540px;flex-shrink:0;animation:up .7s .05s cubic-bezier(.16,1,.3,1) both}
-    .api-row{display:flex;align-items:center;gap:10px;padding:10px 15px;border-radius:16px;}
-    .api-row input{flex:1;background:transparent;border:none;outline:none;font-size:14px;font-family:inherit;color:rgba(255,255,255,.85);font-weight:300;min-width:0;}
-    .api-row input::placeholder{color:rgba(255,255,255,.2)}
-    .api-row a{font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;}
-    .api-row a:hover{color:rgba(255,255,255,.75)}
+
 
     /* ── CHAT CARD ── */
     .chat-card{
@@ -161,13 +156,7 @@
     <div class="pill g"><span class="pdot"></span>En línea</div>
   </div>
 
-  <div class="api-wrap">
-    <div class="api-row g">
-      <span style="font-size:13px;opacity:.35;flex-shrink:0">🔑</span>
-      <input type="password" id="api-key" placeholder="API Key — sk-ant-..." autocomplete="off"/>
-      <a href="https://console.anthropic.com" target="_blank">Obtener →</a>
-    </div>
-  </div>
+
 
   <div class="chat-card">
     <div class="topbar">
@@ -418,15 +407,11 @@ function planetSVG(uid,sz){
 
 // ══ CHAT ══
 const history=[];
-const getKey=()=>{const k=document.getElementById('api-key').value.trim();if(!k){alert('Ingresa tu API Key primero');return null;}return k;};
-
-async function callLion(key,msgs){
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
+async function callLion(msgs){
+  const r=await fetch('/api/chats',{
     method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
-      system:'Eres LION, una inteligencia artificial personal amigable, inteligente y directa. Ayudas con cualquier tema. Responde siempre en español. Sé conciso, claro y útil. Usa emojis con moderación.',
-      messages:msgs})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages:msgs})
   });
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Error '+r.status);}
   const d=await r.json();return d.content.map(b=>b.text||'').join('');
@@ -452,14 +437,13 @@ function addTyping(){
 }
 
 async function send(){
-  const key=getKey();if(!key)return;
   const inp=document.getElementById('chat-input'),btn=document.getElementById('sbtn');
   const text=inp.value.trim();if(!text)return;
   inp.value='';btn.disabled=true;
   document.getElementById('chips').style.display='none';
   addBubble(text,'user');history.push({role:'user',content:text});addTyping();
   try{
-    const reply=await callLion(key,[...history]);
+    const reply=await callLion([...history]);
     history.push({role:'assistant',content:reply});
     document.getElementById('typing')?.remove();addBubble(reply,'assistant');
   }catch(e){document.getElementById('typing')?.remove();addBubble('Error: '+e.message,'assistant');}
