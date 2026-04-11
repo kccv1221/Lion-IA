@@ -352,6 +352,22 @@ async function loadUserHistory(username){
   }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center">Error: ${e.message}</div>`;}
 }
 
+// ══ FORMAT TEXT ══
+function formatText(text){
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code style="background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;font-size:13px">$1</code>')
+    .replace(/^### (.+)$/gm,'<div style="font-weight:600;font-size:14px;margin:8px 0 4px">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-weight:600;font-size:15px;margin:8px 0 4px">$1</div>')
+    .replace(/^# (.+)$/gm,'<div style="font-weight:600;font-size:16px;margin:8px 0 4px">$1</div>')
+    .replace(/^\d+\. (.+)$/gm,'<div style="margin:3px 0;padding-left:4px">$1</div>')
+    .replace(/^[-•] (.+)$/gm,'<div style="margin:3px 0;padding-left:4px">• $1</div>')
+    .replace(/\n\n/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
 // ══ IMAGE ══
 let currentImage = null;
 
@@ -394,7 +410,9 @@ function addBubble(text,role){
   const av=document.createElement('div');
   if(role==='user'){av.className='mav ua';av.textContent=getUserInitials();}
   else{av.className='mav';av.innerHTML=planetSVG('av'+Date.now(),22);}
-  const b=document.createElement('div');b.className='bub '+(role==='user'?'bu':'bl');b.textContent=text;
+  const b=document.createElement('div');b.className='bub '+(role==='user'?'bu':'bl');
+  if(role==='assistant') b.innerHTML=formatText(text);
+  else b.textContent=text;
   row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
 }
 
