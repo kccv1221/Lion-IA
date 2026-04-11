@@ -62,7 +62,7 @@
     .mav{width:26px;height:26px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(255,255,255,.12);}
     .mav svg{width:22px;height:22px}
     .mav.ua{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);font-size:11px;font-weight:600;color:rgba(255,255,255,.8);}
-    .bub{max-width:78%;padding:9px 13px;font-size:14px;font-weight:300;line-height:1.6;border-radius:16px;word-break:break-word;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+    .bub{max-width:78%;padding:9px 13px;font-size:14px;font-weight:300;line-height:1.6;border-radius:16px;word-break:break-word;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);position:relative;}
     .bl{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-bottom-left-radius:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);}
     .bu{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-bottom-right-radius:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.18);}
     .trow{display:flex;gap:8px;align-items:flex-end}
@@ -79,7 +79,12 @@
     .sbtn:active{background:rgba(255,255,255,.14);transform:scale(.93)}
     .sbtn:disabled{opacity:.25;cursor:not-allowed;transform:none}
 
-    .chips{width:100%;max-width:540px;display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0;animation:up .7s .18s cubic-bezier(.16,1,.3,1) both;}
+    .pers-bar{width:100%;max-width:540px;flex-shrink:0;display:flex;gap:6px;animation:up .7s .05s cubic-bezier(.16,1,.3,1) both;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+    .pers-bar::-webkit-scrollbar{display:none}
+    .pers-btn{padding:5px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.1);border-radius:100px;font-size:11px;font-weight:400;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;flex-shrink:0;}
+    .pers-btn.active{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.85);}
+    .copy-btn{position:absolute;bottom:8px;right:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:3px 8px;font-size:10px;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;opacity:0;transition:opacity .2s;}
+    .bub:hover .copy-btn{opacity:1}
     .chip{padding:6px 13px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.12);border-radius:100px;font-size:12px;font-weight:400;color:rgba(255,255,255,.42);cursor:pointer;font-family:inherit;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:all .15s;}
     .chip:active{background:rgba(255,255,255,.1);color:rgba(255,255,255,.85)}
 
@@ -202,6 +207,14 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
+  </div>
+
+  <div class="pers-bar" id="pers-bar">
+    <button class="pers-btn active" onclick="setPersonality('default',this)">🦁 Normal</button>
+    <button class="pers-btn" onclick="setPersonality('amigo',this)">😎 Amigo</button>
+    <button class="pers-btn" onclick="setPersonality('profesor',this)">📚 Profesor</button>
+    <button class="pers-btn" onclick="setPersonality('motivador',this)">🔥 Motivador</button>
+    <button class="pers-btn" onclick="setPersonality('sarcastico',this)">😏 Sarcástico</button>
   </div>
 
   <div class="chips" id="chips">
@@ -352,6 +365,14 @@ async function loadUserHistory(username){
   }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center">Error: ${e.message}</div>`;}
 }
 
+// ══ PERSONALITY ══
+let currentPersonality = 'default';
+function setPersonality(p, el){
+  currentPersonality = p;
+  document.querySelectorAll('.pers-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
 // ══ FORMAT TEXT ══
 function formatText(text){
   return text
@@ -396,7 +417,7 @@ function removeImage(){
 // ══ CHAT ══
 const history=[];
 async function callLion(msgs){
-  const r=await fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,password:appPass,username:userName})});
+  const r=await fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,password:appPass,username:userName,personality:currentPersonality})});
   if(r.status===401){appPass='';document.getElementById('pass-screen').classList.add('active');document.getElementById('main-app').style.display='none';throw new Error('Sesión expirada');}
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Error '+r.status);}
   const d=await r.json();return d.content.map(b=>b.text||'').join('');
@@ -411,8 +432,13 @@ function addBubble(text,role){
   if(role==='user'){av.className='mav ua';av.textContent=getUserInitials();}
   else{av.className='mav';av.innerHTML=planetSVG('av'+Date.now(),22);}
   const b=document.createElement('div');b.className='bub '+(role==='user'?'bu':'bl');
-  if(role==='assistant') b.innerHTML=formatText(text);
-  else b.textContent=text;
+  if(role==='assistant'){
+    b.innerHTML=formatText(text);
+    const copy=document.createElement('button');
+    copy.className='copy-btn';copy.textContent='Copiar';
+    copy.onclick=()=>{navigator.clipboard.writeText(text);copy.textContent='✓';setTimeout(()=>copy.textContent='Copiar',2000);};
+    b.appendChild(copy);
+  } else b.textContent=text;
   row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
 }
 
