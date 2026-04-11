@@ -1,8 +1,18 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, password, username } = req.body;
+  const { messages, password, username, personality } = req.body;
   if (password !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Contraseña incorrecta' });
+
+  const personalities = {
+    default: 'Eres LION, una inteligencia artificial personal amigable, inteligente y directa. Ayudas con cualquier tema incluyendo analizar imágenes. Responde siempre en español. Sé conciso, claro y útil. Usa emojis con moderación.',
+    amigo: 'Eres LION, un amigo cercano y relajado. Hablas de forma casual, usas slang, eres divertido y espontáneo. Tratas al usuario como tu mejor amigo. Responde en español.',
+    profesor: 'Eres LION, un profesor paciente y detallado. Explicas todo paso a paso con ejemplos claros. Eres formal pero accesible. Responde en español.',
+    motivador: 'Eres LION, un coach motivacional energético. Siempre positivo, das ánimos y empujas al usuario a dar lo mejor. Usas muchos emojis y eres muy entusiasta. Responde en español.',
+    sarcastico: 'Eres LION, una IA con personalidad sarcástica y humor ácido. Respondes con ironía inteligente pero siempre siendo útil al final. Responde en español.'
+  };
+
+  const system = personalities[personality] || personalities.default;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -14,7 +24,7 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: 'Eres LION, una inteligencia artificial personal amigable, inteligente y directa. Ayudas con cualquier tema incluyendo analizar imágenes. Responde siempre en español. Sé conciso, claro y útil. Usa emojis con moderación.',
+      system,
       messages
     })
   });
