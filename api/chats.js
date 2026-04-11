@@ -14,17 +14,16 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: 'Eres LION, una inteligencia artificial personal amigable, inteligente y directa. Ayudas con cualquier tema. Responde siempre en español. Sé conciso, claro y útil. Usa emojis con moderación.',
+      system: 'Eres LION, una inteligencia artificial personal amigable, inteligente y directa. Ayudas con cualquier tema incluyendo analizar imágenes. Responde siempre en español. Sé conciso, claro y útil. Usa emojis con moderación.',
       messages
     })
   });
 
   const data = await response.json();
   const reply = data.content?.map(b => b.text || '').join('') || '';
-  const tokens = data.usage?.input_tokens + data.usage?.output_tokens || 0;
+  const tokens = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
   const cost = (tokens / 1000000) * 3;
 
-  // Save to Upstash
   try {
     const now = Date.now();
     const day = new Date().toISOString().split('T')[0];
@@ -32,18 +31,18 @@ export default async function handler(req, res) {
     const kv = process.env.KV_REST_API_URL;
     const token = process.env.KV_REST_API_TOKEN;
 
+    const lastMsg = messages[messages.length-1];
+    const userText = Array.isArray(lastMsg?.content)
+      ? lastMsg.content.find(c => c.type === 'text')?.text || '[imagen]'
+      : lastMsg?.content || '';
+
     const pipe = [
       ['INCR', `stats:msgs:total`],
       ['INCR', `stats:msgs:${day}`],
       ['INCRBYFLOAT', `stats:cost:total`, cost.toFixed(6)],
       ['INCRBYFLOAT', `stats:cost:${day}`, cost.toFixed(6)],
       ['INCR', `stats:users:${user}`],
-      ['LPUSH', `history:${user}`, JSON.stringify({
-        ts: now,
-        user: messages[messages.length-1]?.content || '',
-        lion: reply,
-        tokens
-      })],
+      ['LPUSH', `history:${user}`, JSON.stringify({ ts: now, user: userText, lion: reply, tokens })],
       ['LTRIM', `history:${user}`, 0, 49],
       ['SADD', 'users:all', user]
     ];
