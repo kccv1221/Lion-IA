@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded',showPassScreen);
 
 // ══ CHAT ══
 const history=[];
-async function callLion(msgs, onChunk){
+async function callLion(msgs){
   const r=await fetch('/api/chats',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -469,17 +469,7 @@ async function callLion(msgs, onChunk){
   });
   if(r.status===401){appPassword='';showPassScreen();throw new Error('Contraseña incorrecta');}
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Error '+r.status);}
-  const reader=r.body.getReader();
-  const decoder=new TextDecoder();
-  let full='';
-  while(true){
-    const{done,value}=await reader.read();
-    if(done)break;
-    const chunk=decoder.decode(value,{stream:true});
-    full+=chunk;
-    onChunk(chunk);
-  }
-  return full;
+  const d=await r.json();return d.content.map(b=>b.text||'').join('');
 }
 
 function addBubble(text,role){
@@ -490,7 +480,6 @@ function addBubble(text,role){
   else{av.className='mav';av.innerHTML=planetSVG('av'+Date.now(),22);}
   const b=document.createElement('div');b.className='bub '+(role==='user'?'bu':'bl');b.textContent=text;
   row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
-  return b;
 }
 
 function addTyping(){
@@ -507,30 +496,12 @@ async function send(){
   const text=inp.value.trim();if(!text)return;
   inp.value='';btn.disabled=true;
   document.getElementById('chips').style.display='none';
-  addBubble(text,'user');
-  history.push({role:'user',content:text});
-  addTyping();
+  addBubble(text,'user');history.push({role:'user',content:text});addTyping();
   try{
-    // create streaming bubble
-    const box=document.getElementById('msgs');
-    let streamBub=null;
-    const reply=await callLion([...history],(chunk)=>{
-      if(!streamBub){
-        document.getElementById('typing')?.remove();
-        const row=document.createElement('div');row.className='row';
-        const av=document.createElement('div');av.className='mav';av.innerHTML=planetSVG('av'+Date.now(),22);
-        streamBub=document.createElement('div');streamBub.className='bub bl';
-        row.appendChild(av);row.appendChild(streamBub);
-        box.appendChild(row);
-      }
-      streamBub.textContent+=chunk;
-      box.scrollTop=box.scrollHeight;
-    });
+    const reply=await callLion([...history]);
     history.push({role:'assistant',content:reply});
-  }catch(e){
-    document.getElementById('typing')?.remove();
-    addBubble('Error: '+e.message,'assistant');
-  }
+    document.getElementById('typing')?.remove();addBubble(reply,'assistant');
+  }catch(e){document.getElementById('typing')?.remove();addBubble('Error: '+e.message,'assistant');}
   btn.disabled=false;inp.focus();
 }
 
