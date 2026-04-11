@@ -27,36 +27,42 @@ export default async function handler(req) {
     })
   });
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+
+  (async () => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) { controller.close(); break; }
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        if (done) break;
+        const text = decoder.decode(value);
+        const lines = text.split('\n');
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') { controller.close(); return; }
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
             try {
               const json = JSON.parse(data);
               if (json.type === 'content_block_delta' && json.delta?.text) {
-                controller.enqueue(new TextEncoder().encode(json.delta.text));
+                await writer.write(encoder.encode(json.delta.text));
               }
             } catch {}
           }
         }
       }
+    } finally {
+      writer.close();
     }
-  });
+  })();
 
-  return new Response(stream, {
+  return new Response(readable, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no'
     }
   });
 }
