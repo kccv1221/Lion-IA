@@ -4,8 +4,8 @@ export default async function handler(req, res) {
   const { password, action, username } = req.body;
   if (password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'No autorizado' });
 
-  const kv = process.env.STORAGE_URL;
-  const token = process.env.STORAGE_TOKEN;
+  const kv = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
 
   const kvGet = async (key) => {
     const r = await fetch(`${kv}/get/${key}`, { headers: { Authorization: `Bearer ${token}` } });
