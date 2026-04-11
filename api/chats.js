@@ -29,8 +29,8 @@ export default async function handler(req, res) {
     const now = Date.now();
     const day = new Date().toISOString().split('T')[0];
     const user = username || 'anon';
-    const kv = process.env.STORAGE_URL;
-    const token = process.env.STORAGE_TOKEN;
+    const kv = process.env.KV_REST_API_URL;
+    const token = process.env.KV_REST_API_TOKEN;
 
     const pipe = [
       ['INCR', `stats:msgs:total`],
