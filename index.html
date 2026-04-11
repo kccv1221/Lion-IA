@@ -160,6 +160,7 @@
     <input id="pass-input" type="password" placeholder="Contraseña..." autocomplete="off"
       style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.14);border-radius:14px;padding:11px 16px;font-size:16px;font-family:inherit;color:rgba(255,255,255,0.9);outline:none;backdrop-filter:blur(20px);"
       onkeydown="if(event.key==='Enter')checkPass()"/>
+    <div id="pass-error" style="display:none;font-size:12px;color:#f87171;text-align:center;">Contraseña incorrecta</div>
     <button onclick="checkPass()"
       style="width:100%;padding:11px;border-radius:14px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.85);font-size:14px;font-family:inherit;font-weight:500;cursor:pointer;backdrop-filter:blur(20px);">
       Entrar →
@@ -430,12 +431,31 @@ function showPassScreen(){
   document.getElementById('pass-screen').style.display='flex';
   document.getElementById('main-app').style.display='none';
 }
-function checkPass(){
+async function checkPass(){
   const p=document.getElementById('pass-input').value.trim();
   if(!p)return;
-  appPassword=p;
-  document.getElementById('pass-screen').style.display='none';
-  document.getElementById('main-app').style.display='flex';
+  const btn=document.querySelector('#pass-screen button');
+  const err=document.getElementById('pass-error');
+  btn.textContent='Verificando...';btn.disabled=true;
+  try{
+    const r=await fetch('/api/chats',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:'hola'}],password:p})
+    });
+    if(r.status===401){
+      err.style.display='block';
+      btn.textContent='Entrar →';btn.disabled=false;
+      document.getElementById('pass-input').value='';
+      return;
+    }
+    appPassword=p;
+    document.getElementById('pass-screen').style.display='none';
+    document.getElementById('main-app').style.display='flex';
+  }catch(e){
+    err.style.display='block';
+    btn.textContent='Entrar →';btn.disabled=false;
+  }
 }
 document.addEventListener('DOMContentLoaded',showPassScreen);
 
