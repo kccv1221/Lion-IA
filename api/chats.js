@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         max_tokens: 200,
         system: 'Eres un extractor de datos. Si el mensaje del usuario contiene información personal importante (nombre real, edad, trabajo, ciudad, gustos, familia, objetivos), extráela como lista de hechos cortos. Si no hay nada importante, responde solo "NADA".',
         messages: [{ role: 'user', content: userText }]
