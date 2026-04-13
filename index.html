@@ -133,6 +133,16 @@
       <div class="screen-title">LION AI</div>
       <div class="screen-sub">Ingresa tu nombre y contraseña</div>
     </div>
+    <!-- Google Login -->
+    <button class="screen-btn" onclick="loginGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continuar con Google
+    </button>
+    <div style="display:flex;align-items:center;gap:8px;width:100%">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+      <span style="font-size:11px;color:rgba(255,255,255,.3)">o</span>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+    </div>
     <input id="pass-name" class="screen-input" type="text" placeholder="Tu nombre..." autocomplete="off" autocorrect="off"/>
     <input id="pass-input" class="screen-input" type="password" placeholder="Contraseña..." autocomplete="off" onkeydown="if(event.key==='Enter')checkPass()"/>
     <div id="pass-error" class="screen-error">Nombre o contraseña incorrectos</div>
@@ -330,6 +340,62 @@ resize();draw();setInterval(shoot,3500);window.addEventListener('resize',resize)
 // ══ PLANET SVG ══
 function planetSVG(uid,sz){return`<svg viewBox="0 0 ${sz} ${sz}" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="${sz/2}" cy="${sz/2}" r="${sz*.3}" fill="url(#pg${uid})"/><ellipse cx="${sz/2}" cy="${sz/2}" rx="${sz*.46}" ry="${sz*.135}" stroke="rgba(255,255,255,0.5)" stroke-width=".9" fill="none" transform="rotate(-18 ${sz/2} ${sz/2})"/><ellipse cx="${sz/2}" cy="${sz/2}" rx="${sz*.38}" ry="${sz*.1}" stroke="rgba(255,255,255,0.22)" stroke-width=".5" fill="none" transform="rotate(-18 ${sz/2} ${sz/2})"/><defs><radialGradient id="pg${uid}" cx="35%" cy="30%" r="70%" gradientUnits="objectBoundingBox"><stop offset="0%" stop-color="#d4b483"/><stop offset="45%" stop-color="#a07040"/><stop offset="100%" stop-color="#6b4a28"/></radialGradient></defs></svg>`;}
 document.getElementById('init-av').innerHTML=planetSVG('i1',22);
+
+// ══ GOOGLE LOGIN ══
+function loginGoogle(){
+  window.location.href = '/api/auth/google';
+}
+
+// Check for Google token in URL on load
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const name = params.get('name');
+  const picture = params.get('picture');
+  const error = params.get('error');
+
+  if (error) {
+    document.getElementById('pass-error').style.display = 'block';
+    document.getElementById('pass-error').textContent = 'Error con Google. Intenta de nuevo.';
+    return;
+  }
+
+  if (token && name) {
+    // Save token
+    localStorage.setItem('lion-token', token);
+    localStorage.setItem('lion-name', name);
+    localStorage.setItem('lion-picture', picture || '');
+    // Clean URL
+    window.history.replaceState({}, '', '/');
+    // Auto login
+    appPass = 'google-oauth';
+    userName = name;
+    // Update avatar if picture
+    if (picture) {
+      const initAvs = document.querySelectorAll('.mav.ua');
+      initAvs.forEach(av => {
+        av.style.backgroundImage = `url(${picture})`;
+        av.style.backgroundSize = 'cover';
+        av.textContent = '';
+      });
+    }
+    document.getElementById('pass-screen').classList.remove('active');
+    document.getElementById('main-app').style.display = 'flex';
+    document.getElementById('user-greeting').textContent = `Hola, ${name} 👋`;
+    return;
+  }
+
+  // Check saved token
+  const savedToken = localStorage.getItem('lion-token');
+  const savedName = localStorage.getItem('lion-name');
+  if (savedToken && savedName) {
+    appPass = 'google-oauth';
+    userName = savedName;
+    document.getElementById('pass-screen').classList.remove('active');
+    document.getElementById('main-app').style.display = 'flex';
+    document.getElementById('user-greeting').textContent = `Hola, ${savedName} 👋`;
+  }
+});
 
 // ══ AUTH ══
 let appPass='', userName='', adminPass='';
