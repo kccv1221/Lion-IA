@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#000000"/>
+  <meta name="apple-mobile-web-app-title" content="LION AI"/>
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%23000'/><text y='130' x='50%' text-anchor='middle' font-size='110'>🦁</text></svg>"/>
   <title>LION AI</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
@@ -76,8 +80,8 @@
     .inp::placeholder{color:rgba(255,255,255,.18)}
     .inp:focus{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.07);}
     .sbtn{width:40px;height:40px;border-radius:12px;flex-shrink:0;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);transition:all .18s;}
-    .sbtn:active{background:rgba(255,255,255,.14);transform:scale(.93)}
-    .sbtn:disabled{opacity:.25;cursor:not-allowed;transform:none}
+    .sbtn.recording{background:rgba(255,80,80,.25);border-color:rgba(255,80,80,.5);color:#ff6b6b;animation:pulse-rec 1s infinite;}
+    @keyframes pulse-rec{0%,100%{box-shadow:0 0 0 0 rgba(255,80,80,.4)}50%{box-shadow:0 0 0 6px rgba(255,80,80,0)}}
 
     .pers-bar{width:100%;max-width:540px;flex-shrink:0;display:flex;gap:6px;animation:up .7s .05s cubic-bezier(.16,1,.3,1) both;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
     .pers-bar::-webkit-scrollbar{display:none}
@@ -111,11 +115,27 @@
     .history-ts{font-size:10px;color:rgba(255,255,255,.25);margin-top:6px}
     .back-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 14px;font-size:12px;color:rgba(255,255,255,.6);cursor:pointer;font-family:inherit;margin-bottom:14px;}
 
-    @keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .install-banner{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:16px;padding:12px 16px;display:none;align-items:center;gap:12px;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:280px;max-width:340px;}
+    .install-banner.show{display:flex}
+    .install-banner-text{flex:1;font-size:13px;color:rgba(255,255,255,.8)}
+    .install-banner-text b{display:block;font-size:14px;color:#fff;margin-bottom:2px}
+    .install-btn{padding:7px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;}
+    .install-btn:hover{background:rgba(255,255,255,.2)}
+    .install-dismiss{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:16px;padding:0;flex-shrink:0;}
     @media(max-width:400px){.htext h1{font-size:17px}.bub{font-size:13px;max-width:84%}.chip{font-size:11px;padding:5px 10px}.admin-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
+<div class="install-banner" id="install-banner">
+  <div style="font-size:24px">🦁</div>
+  <div class="install-banner-text">
+    <b>Instalar LION AI</b>
+    Agrega la app a tu pantalla de inicio
+  </div>
+  <button class="install-btn" onclick="installApp()">Instalar</button>
+  <button class="install-dismiss" onclick="dismissInstall()">✕</button>
+</div>
+
 <canvas id="sky"></canvas>
 
 <!-- PASSWORD SCREEN -->
@@ -193,6 +213,7 @@
         <div><div class="tname">LION</div><div class="tsub" id="user-greeting">Siempre disponible</div></div>
       </div>
       <div class="tr">
+        <button class="clr-btn" id="voice-toggle" onclick="toggleVoiceOutput()" title="Silenciar voz">🔊</button>
         <button class="clr-btn" onclick="showMemory()" title="Mi memoria">🧠</button>
         <button class="clr-btn" onclick="openAdminScreen()" title="Admin">⚙️</button>
         <button class="clr-btn" onclick="clearChat()">Limpiar</button>
@@ -216,6 +237,9 @@
       <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImage(event)"/>
       <button class="sbtn" onclick="document.getElementById('img-input').click()" title="Subir imagen" style="flex-shrink:0;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </button>
+      <button class="sbtn" id="mic-btn" onclick="toggleVoice()" title="Hablar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
       </button>
       <input class="inp" type="text" id="chat-input" placeholder="Mensaje a LION..." autocomplete="off" autocorrect="off"/>
       <button class="sbtn" id="sbtn" onclick="send()">
@@ -423,6 +447,123 @@ async function loadUserHistory(username){
   }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center">Error: ${e.message}</div>`;}
 }
 
+// ══ VOICE ══
+let recognition = null;
+let isRecording = false;
+let voiceEnabled = true;
+
+function initVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'es-ES';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('chat-input').value = transcript;
+    if (e.results[e.results.length - 1].isFinal) {
+      stopRecording();
+      setTimeout(() => send(), 300);
+    }
+  };
+
+  recognition.onerror = () => stopRecording();
+  recognition.onend = () => stopRecording();
+}
+
+function toggleVoice() {
+  if (isRecording) stopRecording();
+  else startRecording();
+}
+
+function startRecording() {
+  if (!recognition) { initVoice(); }
+  if (!recognition) { alert('Tu navegador no soporta reconocimiento de voz'); return; }
+  try {
+    recognition.start();
+    isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+    document.getElementById('chat-input').placeholder = 'Escuchando...';
+  } catch(e) {}
+}
+
+function stopRecording() {
+  isRecording = false;
+  const btn = document.getElementById('mic-btn');
+  if (btn) btn.classList.remove('recording');
+  document.getElementById('chat-input').placeholder = 'Mensaje a LION...';
+  try { recognition?.stop(); } catch(e) {}
+}
+
+function speakText(text) {
+  if (!voiceEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/<[^>]*>/g, '').replace(/[*#_`]/g, '').slice(0, 500);
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.lang = 'es-ES';
+  utt.rate = 1.05;
+  utt.pitch = 1;
+
+  // Try to find a Spanish voice
+  const voices = window.speechSynthesis.getVoices();
+  const spanishVoice = voices.find(v => v.lang.startsWith('es')) || voices[0];
+  if (spanishVoice) utt.voice = spanishVoice;
+
+  window.speechSynthesis.speak(utt);
+}
+
+// Init voice on load
+window.addEventListener('load', () => {
+  initVoice();
+  // Preload voices
+  window.speechSynthesis?.getVoices();
+  window.speechSynthesis?.addEventListener('voiceschanged', () => {});
+});
+
+// ══ PWA ══
+let deferredPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  setTimeout(() => {
+    document.getElementById('install-banner').classList.add('show');
+  }, 3000);
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+  deferredPrompt = null;
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').classList.remove('show');
+}
+
+function toggleVoiceOutput(){
+  voiceEnabled = !voiceEnabled;
+  const btn = document.getElementById('voice-toggle');
+  btn.textContent = voiceEnabled ? '🔊' : '🔇';
+  if (!voiceEnabled) window.speechSynthesis?.cancel();
+}
+
 // ══ MEMORY ══
 async function showMemory(){
   document.getElementById('memory-screen').classList.add('active');
@@ -575,7 +716,9 @@ async function send(){
   try{
     const reply=await callLion([...history]);
     history.push({role:'assistant',content:reply});
-    document.getElementById('typing')?.remove();addBubble(reply,'assistant');
+    document.getElementById('typing')?.remove();
+    addBubble(reply,'assistant');
+    speakText(reply);
   }catch(e){document.getElementById('typing')?.remove();addBubble('Error: '+e.message,'assistant');}
   btn.disabled=false;inp.focus();
 }
