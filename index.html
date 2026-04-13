@@ -133,6 +133,20 @@
   </div>
 </div>
 
+<!-- MEMORY SCREEN -->
+<div id="memory-screen" class="screen">
+  <div class="screen-card" style="max-width:420px;width:95%">
+    <div class="screen-icon">🧠</div>
+    <div style="text-align:center">
+      <div class="screen-title">Mi memoria</div>
+      <div class="screen-sub">Lo que LION recuerda de ti</div>
+    </div>
+    <div id="memory-content" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px;font-size:13px;font-weight:300;color:rgba(255,255,255,.7);line-height:1.8;min-height:80px;max-height:200px;overflow-y:auto;">Cargando...</div>
+    <button class="screen-btn" style="background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.3);color:rgba(255,120,120,.8)" onclick="clearMemory()">🗑️ Borrar memoria</button>
+    <button class="screen-btn" style="background:transparent;border-color:transparent;color:rgba(255,255,255,.3);font-size:12px" onclick="document.getElementById('memory-screen').classList.remove('active')">Cerrar</button>
+  </div>
+</div>
+
 <!-- ADMIN LOGIN SCREEN -->
 <div id="admin-screen" class="screen">
   <div class="screen-card">
@@ -179,6 +193,7 @@
         <div><div class="tname">LION</div><div class="tsub" id="user-greeting">Siempre disponible</div></div>
       </div>
       <div class="tr">
+        <button class="clr-btn" onclick="showMemory()" title="Mi memoria">🧠</button>
         <button class="clr-btn" onclick="openAdminScreen()" title="Admin">⚙️</button>
         <button class="clr-btn" onclick="clearChat()">Limpiar</button>
       </div>
@@ -363,6 +378,38 @@ async function loadUserHistory(username){
       </div>
     `;
   }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center">Error: ${e.message}</div>`;}
+}
+
+// ══ MEMORY ══
+async function showMemory(){
+  document.getElementById('memory-screen').classList.add('active');
+  const content = document.getElementById('memory-content');
+  content.textContent = 'Cargando...';
+  try {
+    const r = await fetch('/api/memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: appPass, action: 'get', username: userName })
+    });
+    const { memory } = await r.json();
+    if (!memory.facts || memory.facts.length === 0) {
+      content.textContent = 'LION todavía no recuerda nada sobre ti. ¡Cuéntale cosas sobre ti!';
+    } else {
+      content.innerHTML = memory.facts.map(f => `• ${f}`).join('<br>');
+    }
+  } catch(e) {
+    content.textContent = 'Error al cargar la memoria.';
+  }
+}
+
+async function clearMemory(){
+  if (!confirm('¿Borrar toda la memoria de LION sobre ti?')) return;
+  await fetch('/api/memory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: appPass, action: 'clear', username: userName })
+  });
+  document.getElementById('memory-content').textContent = 'Memoria borrada. LION empezará de cero contigo.';
 }
 
 // ══ PERSONALITY ══
