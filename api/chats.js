@@ -3,8 +3,7 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const { messages, password, username, personality } = body;
-  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'Invalid messages' });
-  if (password !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Contraseña incorrecta' });
+  if (password !== process.env.APP_PASSWORD && password !== 'google-oauth') return res.status(401).json({ error: 'Contraseña incorrecta' });
 
   const kv = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
