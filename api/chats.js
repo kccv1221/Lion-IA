@@ -1,7 +1,9 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, password, username, personality } = req.body;
+  const body = req.body || {};
+  const { messages, password, username, personality } = body;
+  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'Invalid messages' });
   if (password !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
   const kv = process.env.KV_REST_API_URL;
