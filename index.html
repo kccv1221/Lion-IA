@@ -115,7 +115,10 @@
     .history-ts{font-size:10px;color:rgba(255,255,255,.25);margin-top:6px}
     .back-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 14px;font-size:12px;color:rgba(255,255,255,.6);cursor:pointer;font-family:inherit;margin-bottom:14px;}
 
-    .install-banner{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:16px;padding:12px 16px;display:none;align-items:center;gap:12px;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:280px;max-width:340px;}
+    .theme-btn{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px;cursor:pointer;font-family:inherit;color:rgba(255,255,255,.7);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all .2s;}
+    .theme-btn:hover{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
+    .theme-btn.selected{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1)}
+    .theme-preview{width:100%;height:40px;border-radius:8px;border:1px solid rgba(255,255,255,.1)}bottom:20px;left:50%;transform:translateX(-50%);z-index:200;background:rgba(15,15,25,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:16px;padding:12px 16px;display:none;align-items:center;gap:12px;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:280px;max-width:340px;}
     .install-banner.show{display:flex}
     .install-banner-text{flex:1;font-size:13px;color:rgba(255,255,255,.8)}
     .install-banner-text b{display:block;font-size:14px;color:#fff;margin-bottom:2px}
@@ -150,6 +153,44 @@
     <input id="pass-input" class="screen-input" type="password" placeholder="Contraseña..." autocomplete="off" onkeydown="if(event.key==='Enter')checkPass()"/>
     <div id="pass-error" class="screen-error">Nombre o contraseña incorrectos</div>
     <button class="screen-btn" onclick="checkPass()">Entrar →</button>
+  </div>
+</div>
+
+<!-- THEMES SCREEN -->
+<div id="themes-screen" class="screen">
+  <div class="screen-card" style="max-width:400px;width:95%">
+    <div class="screen-icon">🎨</div>
+    <div style="text-align:center">
+      <div class="screen-title">Personaliza LION</div>
+      <div class="screen-sub">Elige tu tema favorito</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%">
+      <button class="theme-btn" onclick="applyTheme('default')" data-theme="default">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#000,#111)"></div>
+        <span>Espacio</span>
+      </button>
+      <button class="theme-btn" onclick="applyTheme('ocean')" data-theme="ocean">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0a192f,#0e3460)"></div>
+        <span>Océano</span>
+      </button>
+      <button class="theme-btn" onclick="applyTheme('forest')" data-theme="forest">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0a1a0a,#1a3a1a)"></div>
+        <span>Bosque</span>
+      </button>
+      <button class="theme-btn" onclick="applyTheme('sunset')" data-theme="sunset">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#1a0a0a,#3a1a0a)"></div>
+        <span>Atardecer</span>
+      </button>
+      <button class="theme-btn" onclick="applyTheme('purple')" data-theme="purple">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#0f0a1a,#2a1a4a)"></div>
+        <span>Galaxia</span>
+      </button>
+      <button class="theme-btn" onclick="applyTheme('minimal')" data-theme="minimal">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#111,#222)"></div>
+        <span>Minimal</span>
+      </button>
+    </div>
+    <button class="screen-btn" style="background:transparent;border-color:transparent;color:rgba(255,255,255,.3);font-size:12px" onclick="document.getElementById('themes-screen').classList.remove('active')">Cerrar</button>
   </div>
 </div>
 
@@ -215,6 +256,7 @@
       <div class="tr">
         <button class="clr-btn" id="voice-toggle" onclick="toggleVoiceOutput()" title="Silenciar voz">🔊</button>
         <button class="clr-btn" onclick="showMemory()" title="Mi memoria">🧠</button>
+        <button class="clr-btn" onclick="openThemes()" title="Temas">🎨</button>
         <button class="clr-btn" onclick="openAdminScreen()" title="Admin">⚙️</button>
         <button class="clr-btn" onclick="clearChat()">Limpiar</button>
       </div>
@@ -525,6 +567,97 @@ window.addEventListener('load', () => {
   // Preload voices
   window.speechSynthesis?.getVoices();
   window.speechSynthesis?.addEventListener('voiceschanged', () => {});
+});
+
+// ══ THEMES ══
+const THEMES = {
+  default: {
+    bg: '#000000',
+    bubbleUser: 'rgba(255,255,255,.09)',
+    bubbleLion: 'rgba(255,255,255,.05)',
+    accent: 'rgba(255,255,255,.16)',
+    orb1: '#1a0a3a',
+    orb2: '#0a1a3a',
+  },
+  ocean: {
+    bg: '#04101e',
+    bubbleUser: 'rgba(56,180,252,.15)',
+    bubbleLion: 'rgba(56,180,252,.06)',
+    accent: 'rgba(56,180,252,.25)',
+    orb1: '#0a2a5a',
+    orb2: '#051525',
+  },
+  forest: {
+    bg: '#030d03',
+    bubbleUser: 'rgba(80,200,80,.15)',
+    bubbleLion: 'rgba(80,200,80,.06)',
+    accent: 'rgba(80,200,80,.25)',
+    orb1: '#0a2a0a',
+    orb2: '#051505',
+  },
+  sunset: {
+    bg: '#0f0500',
+    bubbleUser: 'rgba(255,120,50,.15)',
+    bubbleLion: 'rgba(255,120,50,.06)',
+    accent: 'rgba(255,120,50,.25)',
+    orb1: '#3a1000',
+    orb2: '#1a0800',
+  },
+  purple: {
+    bg: '#08030f',
+    bubbleUser: 'rgba(180,100,255,.18)',
+    bubbleLion: 'rgba(180,100,255,.07)',
+    accent: 'rgba(180,100,255,.28)',
+    orb1: '#2a0a5a',
+    orb2: '#150530',
+  },
+  minimal: {
+    bg: '#0a0a0a',
+    bubbleUser: 'rgba(255,255,255,.12)',
+    bubbleLion: 'rgba(255,255,255,.04)',
+    accent: 'rgba(255,255,255,.14)',
+    orb1: '#1a1a1a',
+    orb2: '#111111',
+  }
+};
+
+function openThemes(){
+  document.getElementById('themes-screen').classList.add('active');
+  const saved = localStorage.getItem('lion-theme') || 'default';
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.theme === saved);
+  });
+}
+
+function applyTheme(name){
+  const t = THEMES[name] || THEMES.default;
+  document.body.style.background = t.bg;
+
+  // Update orbs
+  const orbs = document.querySelectorAll('.orb');
+  if(orbs[0]) orbs[0].style.background = `radial-gradient(circle, ${t.orb1}, transparent 70%)`;
+  if(orbs[1]) orbs[1].style.background = `radial-gradient(circle, ${t.orb2}, transparent 70%)`;
+
+  // Update bubble colors via CSS vars
+  const style = document.getElementById('theme-style') || (() => {
+    const s = document.createElement('style'); s.id = 'theme-style'; document.head.appendChild(s); return s;
+  })();
+  style.textContent = `
+    .bu { background: ${t.bubbleUser} !important; border-color: ${t.accent} !important; }
+    .bl { background: ${t.bubbleLion} !important; }
+    .chat-card, .g { border-color: ${t.accent} !important; }
+  `;
+
+  localStorage.setItem('lion-theme', name);
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.theme === name);
+  });
+}
+
+// Apply saved theme on load
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('lion-theme');
+  if (saved && saved !== 'default') applyTheme(saved);
 });
 
 // ══ PWA ══
