@@ -1,21 +1,16 @@
-export const config = { runtime: 'edge' };
-
-export default async function handler(req) {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
-  }
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   let body;
-  try { body = await req.json(); } catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 }); }
+  try { body = req.body; } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
 
-  const { messages, password, username, personality } = body;
-  if (!messages || !Array.isArray(messages)) return new Response(JSON.stringify({ error: 'Invalid messages' }), { status: 400 });
-  if (password !== process.env.APP_PASSWORD) return new Response(JSON.stringify({ error: 'Contraseña incorrecta' }), { status: 401 });
+  const { messages, password, username, personality } = body || {};
+  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'Invalid messages' });
+  if (password !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
   const kv = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
 
-  // Load memory
   let memory = { facts: [] };
   try {
     const r = await fetch(`${kv}/get/memory:${encodeURIComponent(username||'anon')}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -38,7 +33,6 @@ export default async function handler(req) {
   const memoryContext = memory.facts.length > 0 ? `\n\nRecuerdas esto del usuario:\n${memory.facts.join('\n')}` : '';
   const system = baseSystem + memoryContext;
 
-  // Extract facts
   const user = username || 'anon';
   const lastUserMsg = messages[messages.length - 1];
   const userText = Array.isArray(lastUserMsg?.content)
@@ -47,7 +41,6 @@ export default async function handler(req) {
 
   const extractFacts = (text) => {
     const facts = [];
-    const t = text.toLowerCase();
     const checks = [
       [/(?:me llamo|mi nombre es)\s+([A-ZÁ-Úa-zá-ú]+)/i, m => `Nombre: ${m[1]}`],
       [/tengo\s+(\d+)\s+años?/i, m => `Edad: ${m[1]} años`],
@@ -72,8 +65,7 @@ export default async function handler(req) {
     }).catch(() => {});
   }
 
-  // Call Anthropic with streaming
-  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -83,63 +75,30 @@ export default async function handler(req) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      stream: true,
       system,
       messages
     })
   });
 
-  // Stream text deltas only
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  let fullReply = '';
+  const data = await response.json();
+  const reply = data.content?.map(b => b.text || '').join('') || '';
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const reader = anthropicRes.body.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            try {
-              const json = JSON.parse(data);
-              if (json.type === 'content_block_delta' && json.delta?.text) {
-                fullReply += json.delta.text;
-                controller.enqueue(encoder.encode(json.delta.text));
-              }
-            } catch {}
-          }
-        }
-      } finally {
-        controller.close();
-        // Save stats async
-        const day = new Date().toISOString().split('T')[0];
-        fetch(`${kv}/pipeline`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify([
-            ['INCR', 'stats:msgs:total'],
-            ['INCR', `stats:msgs:${day}`],
-            ['INCR', `stats:users:${user}`],
-            ['LPUSH', `history:${user}`, JSON.stringify({ ts: Date.now(), user: userText, lion: fullReply })],
-            ['LTRIM', `history:${user}`, 0, 49],
-            ['SADD', 'users:all', user]
-          ])
-        }).catch(() => {});
-      }
-    }
-  });
+  try {
+    const day = new Date().toISOString().split('T')[0];
+    const pipe = [
+      ['INCR', 'stats:msgs:total'],
+      ['INCR', `stats:msgs:${day}`],
+      ['INCR', `stats:users:${user}`],
+      ['LPUSH', `history:${user}`, JSON.stringify({ ts: Date.now(), user: userText, lion: reply })],
+      ['LTRIM', `history:${user}`, 0, 49],
+      ['SADD', 'users:all', user]
+    ];
+    await fetch(`${kv}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(pipe)
+    });
+  } catch {}
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      'X-Accel-Buffering': 'no'
-    }
-  });
+  res.status(200).json(data);
 }
