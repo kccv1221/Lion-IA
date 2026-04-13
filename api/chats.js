@@ -19,17 +19,23 @@ export default async function handler(req, res) {
 
   const kvSet = async (key, value) => {
     try {
-      await fetch(`${kv}/set/${encodeURIComponent(key)}`, {
+      await fetch(`${kv}/pipeline`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value })
+        body: JSON.stringify([['SET', key, value]])
       });
     } catch {}
   };
 
   const user = username || 'anon';
-  const memoryRaw = await kvGet(`memory:${user}`);
-  const memory = memoryRaw ? JSON.parse(memoryRaw) : { facts: [] };
+  let memory = { facts: [] };
+  try {
+    const memoryRaw = await kvGet(`memory:${user}`);
+    if (memoryRaw) {
+      const parsed = typeof memoryRaw === 'string' ? JSON.parse(memoryRaw) : memoryRaw;
+      memory = { facts: Array.isArray(parsed?.facts) ? parsed.facts : [] };
+    }
+  } catch(e) { memory = { facts: [] }; }
 
   const personalities = {
     default: 'Eres LION, una IA personal amigable, inteligente y directa. Ayudas con cualquier tema. Responde en español. Sé conciso y útil. Usa emojis con moderación.',
