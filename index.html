@@ -690,17 +690,15 @@ async function callLion(msgs, onChunk){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages: msgs, password: appPass, username: userName, personality: currentPersonality })
   });
-  if (r.status === 401) { appPass = ''; document.getElementById('pass-screen').classList.add('active'); document.getElementById('main-app').style.display = 'none'; throw new Error('Sesión expirada'); }
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error?.message || 'Error ' + r.status); }
-  const reader = r.body.getReader();
-  const decoder = new TextDecoder();
-  let full = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    full += chunk;
-    onChunk(chunk);
+  if (r.status === 401) { appPass=''; document.getElementById('pass-screen').classList.add('active'); document.getElementById('main-app').style.display='none'; throw new Error('Sesión expirada'); }
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message||'Error '+r.status); }
+  const d = await r.json();
+  const full = d.content?.map(b=>b.text||'').join('') || '';
+  // Simulate streaming — show text word by word
+  const words = full.split(' ');
+  for (let i = 0; i < words.length; i++) {
+    await new Promise(r => setTimeout(r, 18));
+    onChunk((i === 0 ? '' : ' ') + words[i]);
   }
   return full;
 }
