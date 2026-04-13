@@ -684,11 +684,25 @@ function removeImage(){
 
 // ══ CHAT ══
 const history=[];
-async function callLion(msgs){
-  const r=await fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,password:appPass,username:userName,personality:currentPersonality})});
-  if(r.status===401){appPass='';document.getElementById('pass-screen').classList.add('active');document.getElementById('main-app').style.display='none';throw new Error('Sesión expirada');}
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Error '+r.status);}
-  const d=await r.json();return d.content.map(b=>b.text||'').join('');
+async function callLion(msgs, onChunk){
+  const r = await fetch('/api/chats', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: msgs, password: appPass, username: userName, personality: currentPersonality })
+  });
+  if (r.status === 401) { appPass = ''; document.getElementById('pass-screen').classList.add('active'); document.getElementById('main-app').style.display = 'none'; throw new Error('Sesión expirada'); }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error?.message || 'Error ' + r.status); }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    full += chunk;
+    onChunk(chunk);
+  }
+  return full;
 }
 
 function getUserInitials(){return userName.slice(0,2).toUpperCase();}
@@ -762,11 +776,30 @@ async function send(){
   history.push({role:'user', content});
   addTyping();
   try{
-    const reply=await callLion([...history]);
-    history.push({role:'assistant',content:reply});
-    document.getElementById('typing')?.remove();
-    addBubble(reply,'assistant');
-    speakText(reply);
+    const box = document.getElementById('msgs');
+    let streamBub = null;
+    let fullReply = '';
+    await callLion([...history], (chunk) => {
+      if (!streamBub) {
+        document.getElementById('typing')?.remove();
+        const row = document.createElement('div'); row.className = 'row';
+        const av = document.createElement('div'); av.className = 'mav'; av.innerHTML = planetSVG('av'+Date.now(), 22);
+        streamBub = document.createElement('div'); streamBub.className = 'bub bl';
+        row.appendChild(av); row.appendChild(streamBub);
+        box.appendChild(row);
+      }
+      fullReply += chunk;
+      streamBub.innerHTML = formatText(fullReply);
+      box.scrollTop = box.scrollHeight;
+    });
+    if (streamBub) {
+      const copy = document.createElement('button');
+      copy.className = 'copy-btn'; copy.textContent = 'Copiar';
+      copy.onclick = () => { navigator.clipboard.writeText(fullReply); copy.textContent = '✓'; setTimeout(() => copy.textContent = 'Copiar', 2000); };
+      streamBub.appendChild(copy);
+    }
+    history.push({role:'assistant', content: fullReply});
+    speakText(fullReply);
   }catch(e){document.getElementById('typing')?.remove();addBubble('Error: '+e.message,'assistant');}
   btn.disabled=false;inp.focus();
 }
