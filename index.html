@@ -337,15 +337,58 @@ async function loadAdminStats(){
     const stats=await statsR.json();
     const {users}=await usersR.json();
 
+    const maxMsgs = Math.max(...(stats.chartMsgs||[]).map(d=>d.msgs), 1);
+    const barChart = (stats.chartMsgs||[]).map(d => {
+      const h = Math.max(4, Math.round((d.msgs/maxMsgs)*80));
+      const date = d.date.slice(5);
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+        <div style="font-size:10px;color:rgba(255,255,255,.5)">${d.msgs||0}</div>
+        <div style="width:100%;max-width:32px;height:${h}px;background:rgba(255,255,255,.2);border-radius:4px 4px 0 0;border-top:1px solid rgba(255,255,255,.4);transition:height .3s"></div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35)">${date}</div>
+      </div>`;
+    }).join('');
+
+    const topUsers = (users||[]).sort((a,b)=>b.msgs-a.msgs).slice(0,5);
+    const maxUserMsgs = Math.max(...topUsers.map(u=>u.msgs), 1);
+    const userBars = topUsers.map(u => {
+      const w = Math.max(4, Math.round((u.msgs/maxUserMsgs)*100));
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="color:rgba(255,255,255,.8)">${u.name}</span>
+          <span style="color:rgba(255,255,255,.4)">${u.msgs} msgs</span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden">
+          <div style="height:100%;width:${w}%;background:rgba(255,255,255,.3);border-radius:100px;transition:width .5s"></div>
+        </div>
+      </div>`;
+    }).join('');
+
     content.innerHTML=`
       <div class="admin-grid">
         <div class="stat-card"><div class="stat-label">Mensajes totales</div><div class="stat-value">${stats.totalMsgs||0}</div><div class="stat-sub">Desde el inicio</div></div>
         <div class="stat-card"><div class="stat-label">Mensajes hoy</div><div class="stat-value">${stats.todayMsgs||0}</div><div class="stat-sub">Últimas 24h</div></div>
-        <div class="stat-card"><div class="stat-label">Gasto total</div><div class="stat-value">$${parseFloat(stats.totalCost||0).toFixed(4)}</div><div class="stat-sub">USD acumulado</div></div>
-        <div class="stat-card"><div class="stat-label">Gasto hoy</div><div class="stat-value">$${parseFloat(stats.todayCost||0).toFixed(4)}</div><div class="stat-sub">USD hoy</div></div>
+        <div class="stat-card"><div class="stat-label">Gasto total</div><div class="stat-value">$${(stats.totalCost||0).toFixed(4)}</div><div class="stat-sub">USD acumulado</div></div>
+        <div class="stat-card"><div class="stat-label">Usuarios</div><div class="stat-value">${stats.totalUsers||0}</div><div class="stat-sub">Registrados</div></div>
       </div>
+
       <div class="admin-section">
-        <div class="admin-section-title">Usuarios (${stats.totalUsers||0})</div>
+        <div class="admin-section-title">Mensajes — últimos 7 días</div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 12px 12px;">
+          <div style="display:flex;align-items:flex-end;gap:4px;height:100px;padding-bottom:4px">
+            ${barChart}
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">Usuarios más activos</div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;">
+          ${topUsers.length === 0 ? '<div style="color:rgba(255,255,255,.3);font-size:13px">Sin usuarios aún</div>' : userBars}
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">Todos los usuarios</div>
         ${(users||[]).sort((a,b)=>b.msgs-a.msgs).map(u=>`
           <div class="user-row" onclick="loadUserHistory('${u.name}')">
             <div><div class="user-name">${u.name}</div><div class="user-msgs">${u.msgs} mensajes</div></div>
@@ -354,7 +397,7 @@ async function loadAdminStats(){
         `).join('')}
       </div>
     `;
-  }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center">Error: ${e.message}</div>`;}
+  }catch(e){content.innerHTML=`<div style="color:#f87171;text-align:center;padding:2rem">Error: ${e.message}</div>`;}
 }
 
 async function loadUserHistory(username){
