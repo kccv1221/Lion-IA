@@ -1,19 +1,19 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let body;
-  try { body = req.body; } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
-
-  const { messages, password, username, personality } = body || {};
+  const body = req.body || {};
+  const { messages, password, username, personality } = body;
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'Invalid messages' });
   if (password !== process.env.APP_PASSWORD) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
   const kv = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  const tavilyKey = process.env.TAVILY_API_KEY;
 
+  // Load memory
   let memory = { facts: [] };
   try {
-    const r = await fetch(`${kv}/get/memory:${encodeURIComponent(username||'anon')}`, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(`${kv}/get/memory:${encodeURIComponent(username||'anon')}`, { headers: { Authorization: `Bearer ${kvToken}` } });
     const d = await r.json();
     if (d.result) {
       const parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
@@ -31,7 +31,6 @@ export default async function handler(req, res) {
 
   const baseSystem = personalities[personality] || personalities.default;
   const memoryContext = memory.facts.length > 0 ? `\n\nRecuerdas esto del usuario:\n${memory.facts.join('\n')}` : '';
-  const system = baseSystem + memoryContext;
 
   const user = username || 'anon';
   const lastUserMsg = messages[messages.length - 1];
@@ -39,6 +38,45 @@ export default async function handler(req, res) {
     ? lastUserMsg.content.find(c => c.type === 'text')?.text || ''
     : lastUserMsg?.content || '';
 
+  // Detect if search is needed
+  const needsSearch = (text) => {
+    const t = text.toLowerCase();
+    const triggers = ['hoy', 'ahora', 'actualmente', 'precio', 'dólar', 'noticias', 'clima', 'tiempo en', 'cuánto cuesta', 'última', 'último', 'reciente', 'este año', 'este mes', '2024', '2025', '2026', 'qué pasó', 'quién ganó', 'resultado'];
+    return triggers.some(w => t.includes(w));
+  };
+
+  // Web search with Tavily
+  let searchContext = '';
+  if (tavilyKey && needsSearch(userText)) {
+    try {
+      const searchRes = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: tavilyKey,
+          query: userText,
+          search_depth: 'basic',
+          max_results: 3,
+          include_answer: true
+        })
+      });
+      const searchData = await searchRes.json();
+      if (searchData.answer || searchData.results?.length > 0) {
+        searchContext = '\n\n🔍 INFORMACIÓN ACTUALIZADA DE INTERNET:\n';
+        if (searchData.answer) searchContext += `Respuesta directa: ${searchData.answer}\n`;
+        if (searchData.results?.length > 0) {
+          searchData.results.slice(0, 3).forEach(r => {
+            searchContext += `\nFuente: ${r.title}\n${r.content?.slice(0, 300)}\n`;
+          });
+        }
+        searchContext += '\nUsa esta información para responder con datos actualizados.';
+      }
+    } catch(e) { console.error('Search error:', e); }
+  }
+
+  const system = baseSystem + memoryContext + searchContext + '\n\nSi usaste búsqueda web, menciona brevemente que la información es de internet con 🌐.';
+
+  // Extract facts
   const extractFacts = (text) => {
     const facts = [];
     const checks = [
@@ -60,7 +98,7 @@ export default async function handler(req, res) {
     const updated = [...new Set([...memory.facts, ...newFacts])].slice(-20);
     fetch(`${kv}/pipeline`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify([['SET', `memory:${user}`, JSON.stringify({ facts: updated })]])
     }).catch(() => {});
   }
@@ -95,7 +133,7 @@ export default async function handler(req, res) {
     ];
     await fetch(`${kv}/pipeline`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(pipe)
     });
   } catch {}
