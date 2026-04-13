@@ -234,9 +234,9 @@
       </div>
     </div>
     <div class="ibar">
-      <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImage(event)"/>
-      <button class="sbtn" onclick="document.getElementById('img-input').click()" title="Subir imagen" style="flex-shrink:0;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <input type="file" id="img-input" accept="image/*,application/pdf" style="display:none" onchange="handleImage(event)"/>
+      <button class="sbtn" onclick="document.getElementById('img-input').click()" title="Subir imagen o PDF" style="flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       </button>
       <button class="sbtn" id="mic-btn" onclick="toggleVoice()" title="Hablar">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -625,20 +625,49 @@ function formatText(text){
     .replace(/\n/g,'<br>');
 }
 
-// ══ IMAGE ══
+// ══ IMAGE & PDF ══
 let currentImage = null;
 
 function handleImage(e){
   const file = e.target.files[0];
   if(!file) return;
+  const isPDF = file.type === 'application/pdf';
+  const maxSize = isPDF ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+
+  if(file.size > maxSize){
+    alert(isPDF ? 'El PDF no puede pesar más de 10MB' : 'La imagen no puede pesar más de 5MB');
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (ev) => {
     currentImage = {
       data: ev.target.result.split(',')[1],
-      type: file.type
+      type: file.type,
+      isPDF,
+      name: file.name
     };
-    document.getElementById('img-thumb').src = ev.target.result;
-    document.getElementById('img-preview').style.display = 'block';
+
+    const preview = document.getElementById('img-preview');
+    const thumb = document.getElementById('img-thumb');
+
+    if(isPDF){
+      thumb.style.display = 'none';
+      let pdfLabel = document.getElementById('pdf-label');
+      if(!pdfLabel){
+        pdfLabel = document.createElement('div');
+        pdfLabel.id = 'pdf-label';
+        pdfLabel.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;color:rgba(255,255,255,.8);';
+        thumb.parentNode.insertBefore(pdfLabel, thumb);
+      }
+      pdfLabel.innerHTML = `📄 <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</span>`;
+    } else {
+      const pdfLabel = document.getElementById('pdf-label');
+      if(pdfLabel) pdfLabel.remove();
+      thumb.style.display = 'block';
+      thumb.src = ev.target.result;
+    }
+    preview.style.display = 'block';
   };
   reader.readAsDataURL(file);
   e.target.value = '';
@@ -648,6 +677,9 @@ function removeImage(){
   currentImage = null;
   document.getElementById('img-preview').style.display = 'none';
   document.getElementById('img-thumb').src = '';
+  document.getElementById('img-thumb').style.display = 'block';
+  const pdfLabel = document.getElementById('pdf-label');
+  if(pdfLabel) pdfLabel.remove();
 }
 
 // ══ CHAT ══
@@ -697,19 +729,30 @@ async function send(){
   let content;
   if(currentImage){
     content = [];
-    content.push({ type:'image', source:{ type:'base64', media_type:currentImage.type, data:currentImage.data }});
-    if(text) content.push({ type:'text', text });
-    else content.push({ type:'text', text:'¿Qué ves en esta imagen? Descríbela detalladamente.' });
-    // Show image in chat
-    const box=document.getElementById('msgs');
-    const row=document.createElement('div');row.className='row u';
-    const av=document.createElement('div');av.className='mav ua';av.textContent=getUserInitials();
-    const b=document.createElement('div');b.className='bub bu';b.style.padding='6px';
-    const img=document.createElement('img');img.src=`data:${currentImage.type};base64,${currentImage.data}`;
-    img.style.cssText='max-width:200px;border-radius:10px;display:block;';
-    if(text){const t=document.createElement('div');t.textContent=text;t.style.cssText='padding:4px 6px;font-size:14px;font-weight:300;';b.appendChild(img);b.appendChild(t);}
-    else b.appendChild(img);
-    row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
+    if(currentImage.isPDF){
+      content.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:currentImage.data }});
+      content.push({ type:'text', text: text || 'Resume este documento de forma clara y detallada. Destaca los puntos más importantes.' });
+      // Show PDF in chat
+      const box=document.getElementById('msgs');
+      const row=document.createElement('div');row.className='row u';
+      const av=document.createElement('div');av.className='mav ua';av.textContent=getUserInitials();
+      const b=document.createElement('div');b.className='bub bu';
+      b.innerHTML=`<div style="display:flex;align-items:center;gap:8px;font-size:13px">📄 <span>${currentImage.name}</span></div>${text?`<div style="margin-top:4px;font-size:14px">${text}</div>`:''}`;
+      row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
+    } else {
+      content.push({ type:'image', source:{ type:'base64', media_type:currentImage.type, data:currentImage.data }});
+      content.push({ type:'text', text: text || '¿Qué ves en esta imagen? Descríbela detalladamente.' });
+      // Show image in chat
+      const box=document.getElementById('msgs');
+      const row=document.createElement('div');row.className='row u';
+      const av=document.createElement('div');av.className='mav ua';av.textContent=getUserInitials();
+      const b=document.createElement('div');b.className='bub bu';b.style.padding='6px';
+      const img=document.createElement('img');img.src=`data:${currentImage.type};base64,${currentImage.data}`;
+      img.style.cssText='max-width:200px;border-radius:10px;display:block;';
+      if(text){const t=document.createElement('div');t.textContent=text;t.style.cssText='padding:4px 6px;font-size:14px;font-weight:300;';b.appendChild(img);b.appendChild(t);}
+      else b.appendChild(img);
+      row.appendChild(av);row.appendChild(b);box.appendChild(row);box.scrollTop=box.scrollHeight;
+    }
     removeImage();
   } else {
     content = text;
